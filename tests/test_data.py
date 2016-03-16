@@ -126,11 +126,13 @@ class TestMonitorDataDir(unittest.TestCase):
 
     def setUp(self):
         self.working_dir = tempfile.mkdtemp()
-        self.app = mock.Mock(config={config.KEY_DATA_DIR: self.working_dir,
+        self.data_dir = os.path.join(self.working_dir, 'data_dir')
+        os.mkdir(self.data_dir)
+        self.app = mock.Mock(config={config.KEY_DATA_DIR: self.data_dir,
                                      config.KEY_DATA_POLLING_INTERVAL: 60})
-        self.test_file = os.path.join(self.working_dir, 'test.file')
+        self.test_file = os.path.join(self.data_dir, 'test.file')
         open(self.test_file, 'w').close()
-        self.test_dir = os.path.join(self.working_dir, 'testdir')
+        self.test_dir = os.path.join(self.data_dir, 'testdir')
         self.test_file_in_dir = os.path.join(self.test_dir, 'test.file')
         os.mkdir(self.test_dir)
         open(self.test_file_in_dir, 'w').close()
@@ -139,7 +141,7 @@ class TestMonitorDataDir(unittest.TestCase):
         for path in [self.test_file_in_dir,
                      self.test_dir,
                      self.test_file,
-                     self.working_dir]:
+                     self.data_dir]:
             st = os.stat(path)
             os.utime(path, (st.st_atime, st.st_mtime - 1))
 
@@ -169,7 +171,7 @@ class TestMonitorDataDir(unittest.TestCase):
         raise StopTest()
 
     def _add_file(self, *args, **kwargs):
-        return self._add_file_with_path(os.path.join(self.working_dir,
+        return self._add_file_with_path(os.path.join(self.data_dir,
                                                      'test1.file'))
 
     @mock.patch('crane.data.load_all')
@@ -254,7 +256,7 @@ class TestMonitorDataDir(unittest.TestCase):
             # First sleep: no action
             # Second sleep: remove file
             if self.helper_method_call_count == 2:
-                os.mkdir(os.path.join(self.working_dir, 'idontexist'))
+                os.mkdir(os.path.join(self.data_dir, 'idontexist'))
 
             return mock.DEFAULT
 
@@ -265,7 +267,7 @@ class TestMonitorDataDir(unittest.TestCase):
     @mock.patch('crane.data.time.sleep')
     def test_data_dir_does_not_exist(self, mock_sleep, mock_load_all):
         mock_sleep.side_effect = self._create_data_dir
-        self.app.config[config.KEY_DATA_DIR] = os.path.join(self.working_dir,
+        self.app.config[config.KEY_DATA_DIR] = os.path.join(self.data_dir,
                                                             'idontexist')
 
         self.assertRaises(StopTest, data.monitor_data_dir, self.app)
