@@ -130,6 +130,10 @@ class TestMonitorDataDir(unittest.TestCase):
         os.mkdir(self.data_dir)
         self.app = mock.Mock(config={config.KEY_DATA_DIR: self.data_dir,
                                      config.KEY_DATA_POLLING_INTERVAL: 60})
+        self.outside_dir = os.path.join(self.working_dir, 'outside_dir')
+        os.mkdir(self.outside_dir)
+        self.symlink = os.path.join(self.data_dir, 'symlink')
+        os.symlink(self.outside_dir, self.symlink)
         self.test_file = os.path.join(self.data_dir, 'test.file')
         open(self.test_file, 'w').close()
         self.test_dir = os.path.join(self.data_dir, 'testdir')
@@ -141,6 +145,7 @@ class TestMonitorDataDir(unittest.TestCase):
         for path in [self.test_file_in_dir,
                      self.test_dir,
                      self.test_file,
+                     self.outside_dir,
                      self.data_dir]:
             st = os.stat(path)
             os.utime(path, (st.st_atime, st.st_mtime - 1))
@@ -185,6 +190,18 @@ class TestMonitorDataDir(unittest.TestCase):
     def _add_file_in_dir(self, *args, **kwargs):
         return self._add_file_with_path(os.path.join(self.test_dir,
                                                      'test2.file'))
+
+    @mock.patch('crane.data.load_all')
+    @mock.patch('crane.data.time')
+    def test_monitor_outside_addition(self, mock_time, mock_load_all):
+        mock_time.sleep.return_value = 0
+        mock_time.sleep.side_effect = self._add_file_in_outside_dir
+        self.assertRaises(StopTest, data.monitor_data_dir, self.app)
+        self.assertEquals(mock_load_all.call_count, 2)
+
+    def _add_file_in_outside_dir(self, *args, **kwargs):
+        return self._add_file_with_path(os.path.join(self.outside_dir,
+                                                     'test3.file'))
 
     @mock.patch('crane.data.load_all')
     @mock.patch('crane.data.time')
